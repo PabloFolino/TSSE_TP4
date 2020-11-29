@@ -30,7 +30,23 @@
 uint16_t ledsVirtuales;
 gpioMap_t pinesVirtuales[]={0,0,M1_ENA1,M1_ENA2,M2_ENA1,0,M2_ENA2};
 pwmMap_t pwmVirtual[]={MOT_DER,MOT_IZQ};
-#define CANTIDAD_MOTORES sizeof(pwmVirtual)/sizeof(pwmMap_t)
+char mensaje[32];
+
+
+typedef struct{
+    pwmMap_t motor;
+    gpioMap_t enable1;
+    gpioMap_t enable2;
+} ejemplo_t;
+
+ejemplo_t EJEMPLOS[]={ 
+    {.motor=MOT_DER,.enable1=M1_ENA1,.enable2=M1_ENA2},
+    {.motor=MOT_IZQ,.enable1=M2_ENA1,.enable2=M2_ENA2}
+    };
+
+
+#define CANTIDAD_EJEMPLOS sizeof(EJEMPLOS)/sizeof(ejemplo_t)
+
 
 
 //======================== Funciones Internas ======================================
@@ -92,11 +108,14 @@ void tearDown(void) {                   // Se llama cada vez que termina una pru
 
 // Test de la función auxiliar pwmWrite
 void test_pwmWrite(void){
-    for(int i=0;i<CANTIDAD_MOTORES;i++){
-        pwmVirtual[i]=VELOCIDAD_POSITIVA;
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];
+        sprintf(mensaje,"Ejemplo %d", i);
+        
+        pwmVirtual[ejemplo->motor]=VELOCIDAD_POSITIVA;
 
-        TEST_ASSERT_TRUE(pwmWrite( MOT_IZQ,0 ));
-        TEST_ASSERT_EQUAL_HEX(0,pwmVirtual[MOT_IZQ]);
+        TEST_ASSERT_TRUE_MESSAGE(pwmWrite( ejemplo->motor ,VELOCIDAD_CERO ),mensaje);
+        TEST_ASSERT_EQUAL_HEX_MESSAGE(VELOCIDAD_CERO,pwmVirtual[ejemplo->motor],mensaje);
     }
 
 }
@@ -104,10 +123,15 @@ void test_pwmWrite(void){
 
 // Test de la función auxiliar gpioWrite
 void test_gpioWrite(void){
-    pinesVirtuales[M2_ENA2]=false;
-    
-    TEST_ASSERT_TRUE(gpioWrite( M2_ENA2,1 ));
-    TEST_ASSERT_EQUAL(true,pinesVirtuales[M2_ENA2]);
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];
+        sprintf(mensaje,"Ejemplo %d", i);
+        
+        pinesVirtuales[ejemplo->enable2]=false;
+
+        TEST_ASSERT_TRUE_MESSAGE(gpioWrite( ejemplo->enable2,1 ),mensaje);
+        TEST_ASSERT_EQUAL_MESSAGE(true,pinesVirtuales[ejemplo->enable2],mensaje);
+    }
 }
 
 // Test de la función inicialización
@@ -118,88 +142,61 @@ void test_initInicializacion(void){
 
 // Test de velocidad positiva
 void test_velocPositiva(void){
-    TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_POSITIVA, MOT_DER), "Init Motores anda");
-    TEST_ASSERT_EQUAL_HEX8(VELOCIDAD_POSITIVA,pwmVirtual[MOT_DER]);
-    TEST_ASSERT_TRUE(pinesVirtuales[M1_ENA1]);
-    TEST_ASSERT_FALSE(pinesVirtuales[M1_ENA2]);
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];
+        sprintf(mensaje,"Ejemplo %d", i);
+
+        TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_POSITIVA, ejemplo->motor), mensaje);
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(VELOCIDAD_POSITIVA,pwmVirtual[ejemplo->motor],mensaje);
+        TEST_ASSERT_TRUE_MESSAGE(pinesVirtuales[ejemplo->enable1],mensaje);
+        TEST_ASSERT_FALSE_MESSAGE(pinesVirtuales[ejemplo->enable2],mensaje);
+    }
 }
 
 // Test de velocidad negativa.
 void test_velocNegativa(void){
-    TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_NEGATIVA, MOT_DER), "Init Motores anda");
-    TEST_ASSERT_EQUAL_HEX8(VELOCIDAD_POSITIVA,pwmVirtual[MOT_DER]);
-    TEST_ASSERT_FALSE(pinesVirtuales[M1_ENA1]);
-    TEST_ASSERT_TRUE(pinesVirtuales[M1_ENA2]);
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];    
+        sprintf(mensaje,"Ejemplo %d", i);
+
+        TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_NEGATIVA, ejemplo->motor), mensaje);
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(VELOCIDAD_POSITIVA,pwmVirtual[ejemplo->motor],mensaje);
+        TEST_ASSERT_FALSE_MESSAGE(pinesVirtuales[ejemplo->enable1],mensaje);
+        TEST_ASSERT_TRUE_MESSAGE(pinesVirtuales[ejemplo->enable2],mensaje);
+    }    
 }
 
 // Test de zona muerta + .
 void test_velocBandaPositiva(void){
-    TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_BAJA_POSI, MOT_DER), "Init Motores anda");
-    TEST_ASSERT_EQUAL_HEX8(VELOCIDAD_CERO,pwmVirtual[MOT_DER]);
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];    
+        sprintf(mensaje,"Ejemplo %d", i);
+
+        TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_BAJA_POSI, ejemplo->motor), mensaje);
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(VELOCIDAD_CERO,pwmVirtual[ejemplo->motor],mensaje);
+    }
 }
 
 // Test de zona muerta - .
 void test_velocBandaNegativa(void){
-    TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_BAJA_NEGA, MOT_DER), "Init Motores anda");
-    TEST_ASSERT_EQUAL_HEX8(VELOCIDAD_CERO,pwmVirtual[MOT_DER]);
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];     
+        sprintf(mensaje,"Ejemplo %d", i);
+
+        TEST_ASSERT_TRUE_MESSAGE(motorSpeed( VELOCIDAD_BAJA_NEGA, ejemplo->motor), mensaje);
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(VELOCIDAD_CERO,pwmVirtual[ejemplo->motor], mensaje);
+    }
 }
 
 
 // Cambio de límite superior de velocidad. Puebo si satura.
 void test_velocUpNew(void){
     motorSpeedMax(NEW_VELOCIDAD_UP);
-    motorSpeed( VELOCIDAD_NEGATIVA, MOT_DER);
-    TEST_ASSERT_EQUAL_HEX8(NEW_VELOCIDAD_UP,pwmVirtual[MOT_DER]);
-}
+    for(int i=0;i<CANTIDAD_EJEMPLOS;i++){
+        ejemplo_t * ejemplo=&EJEMPLOS[i];  
+        sprintf(mensaje,"Ejemplo %d", i);
 
-
-/*
-//Se puede apagar todos los leds
-void test_LedsOffAfterCreate(void){
-    uint16_t ledsVirtuales=0xFFFF;
-    Leds_Create(&ledsVirtuales, RegistrarError);
-    TEST_ASSERT_EQUAL_HEX16(0,ledsVirtuales);
+        motorSpeed( VELOCIDAD_NEGATIVA, ejemplo->motor);
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(NEW_VELOCIDAD_UP,pwmVirtual[ejemplo->motor],mensaje);
+    }
 }
-
-//Se puede prender un LED individual
-void test_prender_ledindividual(void) {
-    Leds_On(1);
-    TEST_ASSERT_EQUAL_HEX16(1,ledsVirtuales);
-}
-
-// Se puede apagar un led individual
-void test_apagar_ledindividual(void) {
-    Leds_On(1);
-    Leds_Off(1);
-    TEST_ASSERT_EQUAL_HEX16(0,ledsVirtuales);
-}
-
-// Se puede prender y apagar múltiplas LED's
-void test_prender_apagar_multiples(void) {
-    Leds_On(3);
-    Leds_On(4);
-    Leds_Off(3);
-    TEST_ASSERT_EQUAL_HEX16(1 << 3,ledsVirtuales);
-}
-
-// Revisar parámetros fuera de los límites
-void test_prender_led_invalido(void) {
-    Leds_On(17);
-    TEST_ASSERT_TRUE(error_informado);
-}
-
-void test_prender_led_invalido1(void) {
-    Leds_On(0);
-    TEST_ASSERT_TRUE(error_informado);
-}
-
-// Se consulta el estado de un led
-void test_consultar_led_ON(void) {
-    Leds_On(16);
-    TEST_ASSERT_TRUE(Leds_Test(16));
-}
-
-void test_consultar_led_OFF(void) {
-    TEST_ASSERT_FALSE(Leds_Test(16));
-}
-*/
